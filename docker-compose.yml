@@ -1,0 +1,12 @@
+version: '3'
+services:
+  db:
+    image: mysql:15.1
+    ports:
+      - '3306:3306'
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_USER: 'quickstart-user'
+      MYSQL_PASSWORD: 'abcdefg123456'
+      MYSQL_ROOT_PASSWORD: 'abcdefg123456'
+      MYSQL_DATABASE: 'quickstart_db'
