@@ -185,6 +185,24 @@ func main() {
 		c.HTML(200, "login.html", gin.H{})
 	})
 
+	// ユーザー登録
+	router.POST("/signup", func(c *gin.Context) {
+		var form User
+		// バリデーション処理
+		if err := c.Bind(&form); err != nil {
+			c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
+			c.Abort()
+		} else {
+			username := c.PostForm("username")
+			password := c.PostForm("password")
+			// 登録ユーザーが重複していた場合にはじく処理
+			if err := createUser(username, password); err != nil {
+				c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
+			}
+			c.Redirect(302, "/")
+		}
+	})
+
 	// ユーザーログイン
 	router.POST("/login", func(c *gin.Context) {
 
@@ -213,9 +231,8 @@ func createUser(username string, password string) []error {
 	db := gormConnect()
 
 	// Insert処理
-	if err := db.Create(&User{Username: username, Password: passwordEncrypt}).GetErrors(); err != nil {
-		return err
-	}
+	db.Create(&User{Username: username, Password: passwordEncrypt})
+
 	return nil
 }
 
@@ -236,6 +253,7 @@ func gormConnect() *gorm.DB {
 	if err != nil {
 		panic(err.Error())
 	}
+
 	return db
 }
 
