@@ -92,12 +92,12 @@ func dbDelete(id int) {
 }
 
 //DB全取得
-func dbGetAll() []Todo {
+func dbGetAll(name string) []Todo {
 
 	db := dbInit()
 
 	var todos []Todo
-	db.Order("created_at desc").Find(&todos)
+	db.Where("username = ?", name).Order("created_at desc").Find(&todos)
 
 	return todos
 }
@@ -116,9 +116,11 @@ func main() {
 	router := gin.Default()
 	router.LoadHTMLGlob("templates/*.html")
 
+	username = getUser(c.PostForm("username"))
+
 	//Index
 	router.GET("/", func(ctx *gin.Context) {
-		todos := dbGetAll()
+		todos := dbGetAll(username)
 		ctx.HTML(200, "index.html", gin.H{
 			"todos": todos,
 		})
@@ -179,10 +181,10 @@ func main() {
 
 	})
 
-	// ユーザーログイン画面
-	router.GET("/login", func(c *gin.Context) {
+	// ユーザー登録画面
+	router.GET("/signup", func(c *gin.Context) {
 
-		c.HTML(200, "login.html", gin.H{})
+		c.HTML(200, "signup.html", gin.H{})
 	})
 
 	// ユーザー登録
@@ -197,6 +199,7 @@ func main() {
 			password := c.PostForm("password")
 			// 登録ユーザーが重複していた場合にはじく処理
 			if err := createUser(username, password); err != nil {
+				log.Println("登録ユーザーが重複していた場合にはじく処理")
 				c.HTML(http.StatusBadRequest, "signup.html", gin.H{"err": err})
 			}
 			c.Redirect(302, "/")
@@ -226,12 +229,14 @@ func main() {
 	router.Run()
 }
 
-func createUser(username string, password string) []error {
+func createUser(username string, password string) error {
 	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
 	db := gormConnect()
 
 	// Insert処理
-	db.Create(&User{Username: username, Password: passwordEncrypt})
+	if err := db.Create(&User{Username: username, Password: passwordEncrypt}).Error; err != nil {
+		return err
+	}
 
 	return nil
 }
