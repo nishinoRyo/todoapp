@@ -15,11 +15,15 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 
+	. "bksn-spm/todoapp/SessionInfo"
+
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/joho/godotenv/autoload"
 	"gorm.io/gorm"
 )
+
+var LoginInfo SessionInfo
 
 type Todo struct {
 	gorm.Model
@@ -95,12 +99,12 @@ func dbDelete(id int) {
 }
 
 //DB全取得
-func dbGetAll(name string) []Todo {
+func dbGetAll() []Todo {
 
 	db := dbInit()
 
 	var todos []Todo
-	db.Where("username = ?", name).Order("created_at desc").Find(&todos)
+	db.Order("created_at desc").Find(&todos)
 
 	return todos
 }
@@ -127,13 +131,13 @@ func main() {
 	menu.Use(sessionCheck())
 	{
 		//Index
-		router.GET("/", func(ctx *gin.Context) {
+		menu.GET("/", func(ctx *gin.Context) {
 			todos := dbGetAll()
 			ctx.HTML(200, "index.html", gin.H{"todos": todos})
 		})
 
 		//Create
-		router.POST("/new", func(ctx *gin.Context) {
+		menu.POST("/new", func(ctx *gin.Context) {
 			text := ctx.PostForm("text")
 			status := ctx.PostForm("status")
 			dbInsert(text, status)
@@ -141,7 +145,7 @@ func main() {
 		})
 
 		//Detail
-		router.GET("/detail/:id", func(ctx *gin.Context) {
+		menu.GET("/detail/:id", func(ctx *gin.Context) {
 			n := ctx.Param("id")
 			id, err := strconv.Atoi(n)
 			if err != nil {
@@ -152,7 +156,7 @@ func main() {
 		})
 
 		//Update
-		router.POST("/update/:id", func(ctx *gin.Context) {
+		menu.POST("/update/:id", func(ctx *gin.Context) {
 			n := ctx.Param("id")
 			id, err := strconv.Atoi(n)
 			if err != nil {
@@ -165,7 +169,7 @@ func main() {
 		})
 
 		//削除確認
-		router.GET("/delete_check/:id", func(ctx *gin.Context) {
+		menu.GET("/delete_check/:id", func(ctx *gin.Context) {
 			n := ctx.Param("id")
 			id, err := strconv.Atoi(n)
 			if err != nil {
@@ -176,7 +180,7 @@ func main() {
 		})
 
 		//Delete
-		router.POST("/delete/:id", func(ctx *gin.Context) {
+		menu.POST("/delete/:id", func(ctx *gin.Context) {
 			n := ctx.Param("id")
 			id, err := strconv.Atoi(n)
 			if err != nil {
@@ -236,6 +240,25 @@ func main() {
 	router.Run()
 }
 
+func sessionCheck() gin.HandlerFunc {
+	return func(c *gin.Context) {
+
+		session := sessions.Default(c)
+		LoginInfo.username = session.Get("username")
+
+		// セッションがない場合、ログインフォームをだす
+		if LoginInfo.username == nil {
+			log.Println("ログインしていません")
+			c.Redirect(http.StatusMovedPermanently, "/login")
+			c.Abort() // これがないと続けて処理されてしまう
+		} else {
+			c.Set("username", LoginInfo.username) // usernameをセット
+			c.Next()
+		}
+		log.Println("ログインチェック終わり")
+	}
+}
+
 func createUser(username string, password string) error {
 	passwordEncrypt, _ := crypto.PasswordEncrypt(password)
 	db := gormConnect()
@@ -275,23 +298,4 @@ func getUser(username string) User {
 	var user User
 	db.First(&user, "username = ?", username)
 	return user
-}
-
-func sessionCheck() gin.HandlerFunc {
-	return func(c *gin.Context) {
-
-		session := sessions.Default(c)
-		LoginInfo.username = session.Get("username")
-
-		// セッションがない場合、ログインフォームをだす
-		if LoginInfo.username == nil {
-			log.Println("ログインしていません")
-			c.Redirect(http.StatusMovedPermanently, "/login")
-			c.Abort() // これがないと続けて処理されてしまう
-		} else {
-			c.Set("username", LoginInfo.username) // usernameをセット
-			c.Next()
-		}
-		log.Println("ログインチェック終わり")
-	}
 }
